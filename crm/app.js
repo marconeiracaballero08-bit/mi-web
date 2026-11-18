@@ -182,6 +182,7 @@
   // ===== Router =====
   function ruta() {
     const h = location.hash.replace(/^#\/?/, '') || 'panel';
+    if (h.startsWith('contacto-')) return { vista: 'contactos', id: decodeURIComponent(h.slice(9)) };
     const [vista, id] = h.split('/');
     return { vista, id: id ? decodeURIComponent(id) : null };
   }
@@ -259,7 +260,7 @@
       <div class="grid-2">
         <div class="stack">
           <div class="card">
-            <div class="card-head"><h2>Pipeline por etapa</h2><a class="btn sm ghost" href="#/oportunidades">Ver tablero →</a></div>
+            <div class="card-head"><h2>Pipeline por etapa</h2><a class="btn sm ghost" href="#oportunidades">Ver tablero →</a></div>
             <div class="card-body">
               ${abiertas.length ? `<div class="bars">${porEtapa.map(e => `
                 <div class="bar-row">
@@ -271,7 +272,7 @@
             </div>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Próximas tareas</h2><a class="btn sm ghost" href="#/tareas">Ver todas →</a></div>
+            <div class="card-head"><h2>Próximas tareas</h2><a class="btn sm ghost" href="#tareas">Ver todas →</a></div>
             ${proximas.length ? proximas.map(filaTarea).join('') : `<div class="empty-state"><h3>Nada pendiente</h3><p>¡Buen trabajo! No tienes tareas abiertas.</p></div>`}
           </div>
         </div>
@@ -309,7 +310,7 @@
     return `<div class="table-wrap"><table>
       <thead><tr>${th('nombre', 'Nombre')}${th('empresa', 'Empresa', 'hide-sm')}${th('estado', 'Estado')}<th class="hide-sm">Teléfono</th>${th('valor', 'Pipeline', 'hide-sm')}${th('ultimo', 'Última actividad', 'hide-sm')}</tr></thead>
       <tbody>${lista.map(c => `
-        <tr data-href="#/contactos/${encodeURIComponent(c.id)}">
+        <tr data-href="#contacto-${encodeURIComponent(c.id)}">
           <td><div class="person">${avatar(c.nombre)}<div style="min-width:0"><div class="name">${esc(c.nombre)}</div><div class="sub">${esc(c.email || c.empresa || '')}</div></div></div></td>
           <td class="hide-sm">${esc(c.empresa || '—')}</td>
           <td><span class="badge ${slug(c.estado)}">${esc(c.estado)}</span></td>
@@ -338,12 +339,12 @@
 
   function vContacto(id) {
     const c = buscarContacto(id);
-    if (!c) return `<a class="back" href="#/contactos">← Contactos</a><div class="card empty-state"><h3>Contacto no encontrado</h3><p>Puede que se haya eliminado.</p></div>`;
+    if (!c) return `<a class="back" href="#contactos">← Contactos</a><div class="card empty-state"><h3>Contacto no encontrado</h3><p>Puede que se haya eliminado.</p></div>`;
     const ops = state.oportunidades.filter(o => o.contactoId === id);
     const tareas = state.tareas.filter(t => t.contactoId === id).sort((a, b) => (a.hecha - b.hecha) || (a.vence || '').localeCompare(b.vence || ''));
     const notas = [...(c.notas || [])].sort((a, b) => b.fecha.localeCompare(a.fecha));
     return `
-      <a class="back" href="#/contactos">← Contactos</a>
+      <a class="back" href="#contactos">← Contactos</a>
       <div class="card card-pad" style="margin-bottom:18px">
         <div class="profile">
           ${avatar(c.nombre, 'lg')}
@@ -457,7 +458,7 @@
       <div class="grow">
         <div class="title" data-action="editar-tarea" data-id="${esc(t.id)}">${esc(t.titulo)}</div>
         <div class="meta">${fechaBadge}
-          ${mostrarContacto && t.contactoId && buscarContacto(t.contactoId) ? `<a href="#/contactos/${encodeURIComponent(t.contactoId)}">${esc(nombreContacto(t.contactoId))}</a>` : ''}
+          ${mostrarContacto && t.contactoId && buscarContacto(t.contactoId) ? `<a href="#contacto-${encodeURIComponent(t.contactoId)}">${esc(nombreContacto(t.contactoId))}</a>` : ''}
         </div>
       </div>
       ${!t.hecha && t.prioridad ? `<span class="badge ${slug(t.prioridad)}">${esc(t.prioridad)}</span>` : ''}
@@ -597,8 +598,8 @@
     if (alCambiar) form.addEventListener('change', e => alCambiar(form, e.target.name));
     $$('[data-close]', dlg).forEach(b => b.addEventListener('click', () => dlg.close()));
     if (onEliminar) {
-      $('[data-delete]', dlg).addEventListener('click', () => {
-        if (!confirm('¿Seguro que quieres eliminarlo? Esta acción no se puede deshacer.')) return;
+      $('[data-delete]', dlg).addEventListener('click', async () => {
+        if (!(await confirmar('Esta acción no se puede deshacer.', { titulo: '¿Eliminar definitivamente?', ok: 'Eliminar', peligro: true }))) return;
         onEliminar();
         dlg.close();
         guardar();
@@ -639,7 +640,7 @@
           state.contactos.push(nuevo);
           registrar(`Nuevo contacto: ${d.nombre}`);
           toast('Contacto creado');
-          setTimeout(() => ir('#/contactos/' + encodeURIComponent(nuevo.id)));
+          setTimeout(() => ir('#contacto-' + encodeURIComponent(nuevo.id)));
         }
       },
       onEliminar: c ? () => {
@@ -648,7 +649,7 @@
         state.tareas.forEach(t => { if (t.contactoId === c.id) t.contactoId = ''; });
         registrar(`Contacto eliminado: ${c.nombre}`, 'borrado');
         toast('Contacto eliminado');
-        location.hash = '#/contactos';
+        location.hash = '#contactos';
       } : null,
     });
   }
@@ -777,28 +778,120 @@
     const cols = [['nombre', 'Nombre'], ['empresa', 'Empresa'], ['email', 'Email'], ['telefono', 'Teléfono'], ['estado', 'Estado'], ['origen', 'Origen'], ['etiquetas', 'Etiquetas'], ['info', 'Información'], ['creado', 'Creado']];
     const celda = v => { const s = Array.isArray(v) ? v.join(', ') : String(v ?? ''); return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const filas = [cols.map(c => c[1]).join(';'), ...state.contactos.map(c => cols.map(([k]) => celda(k === 'creado' ? (c.creado || '').slice(0, 10) : c[k])).join(';'))];
-    descargar(`contactos-${hoy()}.csv`, '﻿' + filas.join('\r\n'), 'text/csv;charset=utf-8');
-    toast('Contactos exportados');
+    const tab = v => (Array.isArray(v) ? v.join(', ') : String(v ?? '')).replace(/[\t\r\n]+/g, ' ');
+    const tabla = [cols.map(c => c[1]).join('\t'), ...state.contactos.map(c => cols.map(([k]) => tab(k === 'creado' ? (c.creado || '').slice(0, 10) : c[k])).join('\t'))];
+    mostrarExportacion({
+      titulo: 'Exportar contactos',
+      ayuda: `${state.contactos.length} contactos. Pulsa Copiar y pégalo en Excel o Google Sheets: cada dato irá a su columna.`,
+      texto: tabla.join('\n'),
+      archivo: `contactos-${hoy()}.csv`,
+      contenidoArchivo: '\ufeff' + filas.join('\r\n'),
+      tipo: 'text/csv;charset=utf-8',
+    });
   }
 
+  async function importarTexto(txt) {
+    let datos;
+    try {
+      datos = JSON.parse(txt);
+      if (!datos || !Array.isArray(datos.contactos)) throw new Error('formato');
+    } catch {
+      toast('Eso no es una copia válida de Mi CRM. Comprueba que el texto esté completo.', 'error');
+      return;
+    }
+    const ok = await confirmar(
+      `Se importarán ${datos.contactos.length} contactos, ${(datos.oportunidades || []).length} oportunidades y ${(datos.tareas || []).length} tareas.\n\nTus datos actuales se reemplazarán.`,
+      { titulo: '¿Importar esta copia?', ok: 'Importar', peligro: true });
+    if (!ok) return;
+    state = normalizar(datos);
+    state.ajustes.demo = false;
+    registrar('Copia de seguridad importada');
+    guardar();
+    if ($('#modal').open) $('#modal').close();
+    toast('Datos importados correctamente');
+    ir('#panel');
+  }
   $('#importFile').addEventListener('change', async e => {
     const file = e.target.files[0];
     e.target.value = '';
-    if (!file) return;
-    try {
-      const datos = JSON.parse(await file.text());
-      if (!datos || !Array.isArray(datos.contactos)) throw new Error('formato');
-      if (!confirm(`Se importarán ${datos.contactos.length} contactos, ${(datos.oportunidades || []).length} oportunidades y ${(datos.tareas || []).length} tareas.\n\nEsto reemplazará tus datos actuales. ¿Continuar?`)) return;
-      state = normalizar(datos);
-      state.ajustes.demo = false;
-      registrar('Copia de seguridad importada');
-      guardar();
-      toast('Datos importados correctamente');
-      ir('#/panel');
-    } catch {
-      toast('El archivo no es una copia válida de Mi CRM', 'error');
-    }
+    if (file) importarTexto(await file.text());
   });
+
+  function abrirImportacion() {
+    const dlg = $('#modal');
+    dlg.innerHTML = `<form>
+      <header class="modal-head"><h2>Importar copia de seguridad</h2><button type="button" class="icon-btn" data-close aria-label="Cerrar">✕</button></header>
+      <div class="modal-body">
+        <p class="muted" style="margin:0 0 12px">Elige el archivo .json que exportaste o pega aquí su contenido. Reemplazará los datos actuales.</p>
+        <button type="button" class="btn" data-file>Elegir archivo…</button>
+        <label class="field" for="importText" style="margin-top:14px"><span>O pega la copia</span>
+          <textarea id="importText" class="export-text" rows="8" placeholder='{"ajustes": … }'></textarea></label>
+      </div>
+      <footer class="modal-foot"><span class="spacer"></span><button type="button" class="btn ghost" data-close>Cancelar</button><button type="submit" class="btn primary">Importar</button></footer>
+    </form>`;
+    $$('[data-close]', dlg).forEach(b => b.addEventListener('click', () => dlg.close()));
+    $('[data-file]', dlg).addEventListener('click', () => $('#importFile').click());
+    $('form', dlg).addEventListener('submit', e => {
+      e.preventDefault();
+      const txt = $('#importText', dlg).value.trim();
+      if (!txt) { toast('Pega el contenido de la copia o elige un archivo', 'error'); return; }
+      importarTexto(txt);
+    });
+    dlg.showModal();
+  }
+
+  function mostrarExportacion({ titulo, ayuda, texto, archivo, contenidoArchivo = texto, tipo }) {
+    const dlg = $('#modal');
+    dlg.innerHTML = `<form>
+      <header class="modal-head"><h2>${esc(titulo)}</h2><button type="button" class="icon-btn" data-close aria-label="Cerrar">✕</button></header>
+      <div class="modal-body">
+        <p class="muted" style="margin:0 0 12px">${esc(ayuda)}</p>
+        <textarea id="exportText" class="export-text" rows="10" readonly aria-label="Contenido exportado">${esc(texto)}</textarea>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="btn" data-dl>Descargar archivo</button>
+        <span class="spacer"></span>
+        <button type="submit" class="btn primary">Copiar</button>
+      </footer>
+    </form>`;
+    const ta = $('#exportText', dlg);
+    const seleccionar = () => { ta.focus(); ta.select(); toast('Texto seleccionado: cópialo con Ctrl+C (o mantén pulsado en el móvil)'); };
+    $$('[data-close]', dlg).forEach(b => b.addEventListener('click', () => dlg.close()));
+    $('[data-dl]', dlg).addEventListener('click', () => descargar(archivo, contenidoArchivo, tipo));
+    $('form', dlg).addEventListener('submit', e => {
+      e.preventDefault();
+      if (!navigator.clipboard?.writeText) { seleccionar(); return; }
+      navigator.clipboard.writeText(texto).then(() => toast('Copiado al portapapeles'), seleccionar);
+    });
+    dlg.showModal();
+  }
+
+  // ===== Confirmaciones dentro de la página =====
+  function confirmar(mensaje, { titulo = '¿Seguro?', ok = 'Aceptar', peligro = false, escribir = '' } = {}) {
+    return new Promise(resolve => {
+      const dlg = $('#confirmDlg');
+      dlg.innerHTML = `<form>
+        <header class="modal-head"><h2>${esc(titulo)}</h2></header>
+        <div class="modal-body">
+          <p style="margin:0;white-space:pre-line">${esc(mensaje)}</p>
+          ${escribir ? `<label class="field" for="confirmInput" style="margin-top:14px"><span>Escribe ${esc(escribir)} para confirmar</span><input id="confirmInput" autocomplete="off"></label>` : ''}
+        </div>
+        <footer class="modal-foot"><span class="spacer"></span>
+          <button type="button" class="btn ghost" data-no>Cancelar</button>
+          <button type="submit" class="btn ${peligro ? 'danger-solid' : 'primary'}" data-ok ${escribir ? 'disabled' : ''}>${esc(ok)}</button>
+        </footer>
+      </form>`;
+      let resultado = false;
+      const input = $('#confirmInput', dlg);
+      const botonOk = $('[data-ok]', dlg);
+      if (input) input.addEventListener('input', () => { botonOk.disabled = input.value.trim().toUpperCase() !== escribir; });
+      $('form', dlg).addEventListener('submit', e => { e.preventDefault(); if (botonOk.disabled) return; resultado = true; dlg.close(); });
+      $('[data-no]', dlg).addEventListener('click', () => dlg.close());
+      dlg.addEventListener('close', () => resolve(resultado), { once: true });
+      dlg.showModal();
+      (input || botonOk).focus();
+    });
+  }
 
   // ===== Acciones =====
   const acciones = {
@@ -817,31 +910,40 @@
       guardar();
       setTimeout(render, t.hecha ? 250 : 0);
     },
-    'borrar-nota': d => {
+    'borrar-nota': async d => {
       const c = buscarContacto(d.id);
-      if (!c || !confirm('¿Eliminar esta nota?')) return;
+      if (!c || !(await confirmar('Se quitará del historial de este contacto.', { titulo: '¿Eliminar esta nota?', ok: 'Eliminar', peligro: true }))) return;
       c.notas = c.notas.filter(n => n.id !== d.nota);
       guardar(); render();
     },
     'filtro-estado': d => { ui.estado = d.v; render(); },
     'filtro-tareas': d => { ui.filtroTareas = d.v; render(); },
     'ordenar': d => { if (ui.orden === d.k) ui.dir *= -1; else { ui.orden = d.k; ui.dir = 1; } $('#tablaContactos').innerHTML = tablaContactos(); },
-    'exportar-json': () => { descargar(`mi-crm-copia-${hoy()}.json`, JSON.stringify(state, null, 2), 'application/json'); toast('Copia descargada'); },
+    'exportar-json': () => mostrarExportacion({
+      titulo: 'Copia de seguridad',
+      ayuda: 'Guarda este texto en un lugar seguro (un email a ti mismo, una nota o un archivo). Para recuperarlo, usa Importar copia y pégalo.',
+      texto: JSON.stringify(state),
+      archivo: `mi-crm-copia-${hoy()}.json`,
+      contenidoArchivo: JSON.stringify(state, null, 2),
+      tipo: 'application/json',
+    }),
     'exportar-csv': exportarCSV,
-    'importar': () => $('#importFile').click(),
+    'importar': abrirImportacion,
     'mantener-demo': () => { state.ajustes.demo = false; guardar(); render(); },
-    'empezar-limpio': () => {
-      if (!confirm('Se borrarán los datos de ejemplo para que empieces con tu CRM vacío. ¿Continuar?')) return;
+    'empezar-limpio': async () => {
+      if (!(await confirmar('Se borrarán los datos de ejemplo y tu CRM quedará vacío, listo para tus contactos.', { titulo: '¿Empezar desde cero?', ok: 'Empezar desde cero' }))) return;
       const { nombre, moneda } = state.ajustes;
       state = vacio(); state.ajustes.nombre = nombre; state.ajustes.moneda = moneda;
       registrar('¡Bienvenido a tu CRM!');
       guardar(); toast('Listo. Empieza añadiendo tu primer contacto'); render();
     },
-    'cargar-demo': () => { if (!confirm('Esto reemplazará todos tus datos por los de ejemplo. ¿Continuar?')) return; state = datosDemo(); guardar(); ir('#/panel'); },
-    'borrar-todo': () => {
-      if (!confirm('Se borrarán TODOS tus contactos, oportunidades y tareas. ¿Seguro?')) return;
-      if (prompt('Escribe BORRAR para confirmar') !== 'BORRAR') { toast('Cancelado'); return; }
-      state = vacio(); guardar(); toast('Datos borrados'); ir('#/panel');
+    'cargar-demo': async () => {
+      if (!(await confirmar('Todos tus datos se reemplazarán por los de ejemplo.', { titulo: '¿Cargar datos de ejemplo?', ok: 'Cargar ejemplo', peligro: true }))) return;
+      state = datosDemo(); guardar(); ir('#panel');
+    },
+    'borrar-todo': async () => {
+      if (!(await confirmar('Se borrarán todos tus contactos, oportunidades y tareas. No se puede deshacer.', { titulo: '¿Borrar todos los datos?', ok: 'Borrar todo', peligro: true, escribir: 'BORRAR' }))) return;
+      state = vacio(); guardar(); toast('Datos borrados'); ir('#panel');
     },
   };
 
@@ -890,9 +992,9 @@
     const q = norm(buscador.value.trim());
     if (!q) { resultados.hidden = true; return; }
     const cs = state.contactos.filter(c => norm([c.nombre, c.empresa, c.email, c.telefono, (c.etiquetas || []).join(' ')].join(' ')).includes(q)).slice(0, 6)
-      .map(c => ({ href: '#/contactos/' + encodeURIComponent(c.id), html: `${avatar(c.nombre, 'sm')}<span>${esc(c.nombre)}${c.empresa ? ` <span class="muted">· ${esc(c.empresa)}</span>` : ''}</span><span class="kind">Contacto</span>` }));
+      .map(c => ({ href: '#contacto-' + encodeURIComponent(c.id), html: `${avatar(c.nombre, 'sm')}<span>${esc(c.nombre)}${c.empresa ? ` <span class="muted">· ${esc(c.empresa)}</span>` : ''}</span><span class="kind">Contacto</span>` }));
     const os = state.oportunidades.filter(o => norm(o.titulo + ' ' + nombreContacto(o.contactoId)).includes(q)).slice(0, 4)
-      .map(o => ({ href: '#/oportunidades', id: o.id, html: `<span>${esc(o.titulo)} <span class="muted">· ${fmtDinero(o.valor)}</span></span><span class="kind">${esc(etapa(o.etapa).nombre)}</span>` }));
+      .map(o => ({ href: '#oportunidades', id: o.id, html: `<span>${esc(o.titulo)} <span class="muted">· ${fmtDinero(o.valor)}</span></span><span class="kind">${esc(etapa(o.etapa).nombre)}</span>` }));
     const todos = [...cs, ...os];
     resultados.innerHTML = todos.length
       ? todos.map((r, i) => `<a href="${r.href}" ${r.id ? `data-op="${esc(r.id)}"` : ''} class="${i === 0 ? 'sel' : ''}">${r.html}</a>`).join('')

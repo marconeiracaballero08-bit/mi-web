@@ -127,8 +127,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .nav a.active { background: var(--accent-soft); color: var(--accent-text); }
 
 .main { min-width: 0; display: flex; flex-direction: column; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
 .topbar {
-  position: sticky; top: 0; z-index: 20;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
   display: flex; align-items: center; gap: 12px; padding: 12px 28px;
   background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -168,6 +169,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.ghost:hover { background: var(--surface-2); }
 .btn.danger { color: var(--danger); }
 .btn.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+.btn.danger-solid { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.btn.danger-solid:hover { filter: brightness(1.08); background: var(--danger); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.sm { padding: 5px 10px; font-size: 13px; }
 .icon-btn {
   display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-sm);
@@ -371,6 +375,8 @@ th.sortable:hover { color: var(--text); }
 .field > span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .field.full { grid-column: 1 / -1; }
 .field textarea { resize: vertical; min-height: 76px; }
+.modal.confirm { width: min(440px, calc(100vw - 24px)); }
+.export-text { width: 100%; resize: vertical; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .field .hint { font-size: 12px; color: var(--muted); }
 
 /* ===== Toast ===== */

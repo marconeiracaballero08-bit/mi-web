@@ -29,7 +29,7 @@ La primera vez verás **datos de ejemplo**; pulsa «Empezar desde cero» cuando 
 
 ### Dónde se guardan los datos
 
-Los datos se guardan en el almacenamiento local de tu navegador (`localStorage`): son privados y no salen de tu equipo, pero tampoco se sincronizan entre dispositivos. Usa **Ajustes → Exportar copia** con regularidad y **Importar copia** para pasarlos a otro navegador. Si borras los datos de navegación del sitio, se pierden.
+Los datos se guardan en el almacenamiento local de tu navegador (`localStorage`): son privados y no salen de tu equipo, pero tampoco se sincronizan entre dispositivos. Usa **Ajustes → Exportar copia** con regularidad (puedes copiar el texto o descargar el archivo) y **Importar copia** para pasarlos a otro navegador. Si borras los datos de navegación del sitio, se pierden.
 
 ### Estructura
 
